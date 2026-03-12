@@ -39,6 +39,26 @@ curl http://localhost/files/<token> -o file.pdf
 
 Supports `Range` requests for partial content.
 
+## Horizontal scaling
+
+Gatefile is designed to scale horizontally. Multiple app instances can run concurrently because all shared state (token → S3 URL mappings) lives in Redis, not in local memory.
+
+```
+clients → nginx (round-robin) → app replica 1 ─┐
+                               → app replica 2 ─┼→ Redis
+                               → app replica 3 ─┘
+```
+
+A token registered on replica 1 can be resolved by replica 2 or 3 on the next request — any instance can serve any token. Without Redis, each replica would have its own isolated in-memory store, causing frequent 404s depending on which instance handled the request.
+
+To scale up or down:
+
+```bash
+docker compose up --scale app=5
+```
+
+The default `docker-compose.yml` starts 3 replicas. For production, point `REDIS_URL` at a managed Redis instance (e.g. ElastiCache, Redis Cloud) and run as many app containers as needed behind a load balancer.
+
 ## Environment variables
 
 | Variable    | Description                        | Default               |
